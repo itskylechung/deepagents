@@ -236,8 +236,6 @@ Always:
 
 When using sub-agents, provide them with specific, focused tasks and incorporate their specialized insights into your overall analysis."""
 
-# Define all tools
-# Define tools, excluding BraveSearch-based tools when API key is not set
 _brave_api_key = os.getenv("BRAVE_SEARCH_API_KEY", "")
 tools = [get_stock_price, get_financial_statements, get_technical_indicators]
 if _brave_api_key:
@@ -322,7 +320,6 @@ with gr.Blocks() as demo:
     **Brave Search API Setup:**
     1. Get your free API key at [Brave Search API](https://api.search.brave.com/)
     2. Create a `.env` file in this directory with: `BRAVE_SEARCH_API_KEY=your_api_key_here`
-    3. Or enter your API key below (optional)
     
     **Current Status:** {api_status}
     {f"**Loaded Key:** {env_api_key[:8]}...{env_api_key[-4:]} (masked)" if env_api_key else ""}
@@ -334,14 +331,6 @@ with gr.Blocks() as demo:
             value="ollama",
             label="Model Provider",
             info="Choose between Ollama (local) or LM Studio (local)",
-        )
-        
-    with gr.Row():
-        api_key_input = gr.Textbox(
-            label="Brave Search API Key (Optional)",
-            type="password",
-            placeholder="Enter your Brave Search API key here or use .env file...",
-            info="Required for web search features. Leave empty if you've set BRAVE_SEARCH_API_KEY in .env file."
         )
 
     with gr.Row():
