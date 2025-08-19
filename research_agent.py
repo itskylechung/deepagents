@@ -1,20 +1,14 @@
 from deepagents import create_deep_agent
+from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 import yfinance as yf
 import logging
 import gradio as gr
 from langchain_core.tools import tool
-from typing import Dict
 import json
 
 logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-# 1. Create an Ollama model
-ollama_model = ChatOllama(
-    model="gpt-oss",   # Or any model you have in Ollama
-    temperature=0,
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
@@ -29,7 +23,7 @@ def get_stock_price(symbol: str) -> str:
         if hist.empty:
             logging.error("No historical data found")
             return json.dumps({"error": f"Could not retrieve data for {symbol}"})
-            
+
         current_price = hist['Close'].iloc[-1]
         result = {
             "symbol": symbol,
@@ -47,6 +41,7 @@ def get_stock_price(symbol: str) -> str:
         logging.exception("Exception in get_stock_price")
         return json.dumps({"error": str(e)})
 
+
 @tool
 def get_financial_statements(symbol: str) -> str:
     """Retrieve key financial statement data."""
@@ -54,19 +49,39 @@ def get_financial_statements(symbol: str) -> str:
         stock = yf.Ticker(symbol)
         financials = stock.financials
         balance_sheet = stock.balance_sheet
-        
+
         latest_year = financials.columns[0]
-        
-        return json.dumps({
-            "symbol": symbol,
-            "period": str(latest_year.year),
-            "revenue": float(financials.loc['Total Revenue', latest_year]) if 'Total Revenue' in financials.index else 'N/A',
-            "net_income": float(financials.loc['Net Income', latest_year]) if 'Net Income' in financials.index else 'N/A',
-            "total_assets": float(balance_sheet.loc['Total Assets', latest_year]) if 'Total Assets' in balance_sheet.index else 'N/A',
-            "total_debt": float(balance_sheet.loc['Total Debt', latest_year]) if 'Total Debt' in balance_sheet.index else 'N/A'
-        }, indent=2)
+
+        return json.dumps(
+            {
+                "symbol": symbol,
+                "period": str(latest_year.year),
+                "revenue": (
+                    float(financials.loc["Total Revenue", latest_year])
+                    if "Total Revenue" in financials.index
+                    else "N/A"
+                ),
+                "net_income": (
+                    float(financials.loc["Net Income", latest_year])
+                    if "Net Income" in financials.index
+                    else "N/A"
+                ),
+                "total_assets": (
+                    float(balance_sheet.loc["Total Assets", latest_year])
+                    if "Total Assets" in balance_sheet.index
+                    else "N/A"
+                ),
+                "total_debt": (
+                    float(balance_sheet.loc["Total Debt", latest_year])
+                    if "Total Debt" in balance_sheet.index
+                    else "N/A"
+                ),
+            },
+            indent=2,
+        )
     except Exception as e:
         return f"Error: {str(e)}"
+
 
 @tool
 def get_technical_indicators(symbol: str, period: str = "3mo") -> str:
@@ -74,31 +89,38 @@ def get_technical_indicators(symbol: str, period: str = "3mo") -> str:
     try:
         stock = yf.Ticker(symbol)
         hist = stock.history(period=period)
-        
+
         if hist.empty:
             return f"Error: No historical data for {symbol}"
-        
-        hist['SMA_20'] = hist['Close'].rolling(window=20).mean()
-        hist['SMA_50'] = hist['Close'].rolling(window=50).mean()
-        
-        delta = hist['Close'].diff()
+
+        hist["SMA_20"] = hist["Close"].rolling(window=20).mean()
+        hist["SMA_50"] = hist["Close"].rolling(window=50).mean()
+
+        delta = hist["Close"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
-        
+
         latest = hist.iloc[-1]
         latest_rsi = rsi.iloc[-1]
-        
-        return json.dumps({
-            "symbol": symbol,
-            "current_price": round(latest['Close'], 2),
-            "sma_20": round(latest['SMA_20'], 2),
-            "sma_50": round(latest['SMA_50'], 2),
-            "rsi": round(latest_rsi, 2),
-            "volume": int(latest['Volume']),
-            "trend_signal": "bullish" if latest['Close'] > latest['SMA_20'] > latest['SMA_50'] else "bearish"
-        }, indent=2)
+
+        return json.dumps(
+            {
+                "symbol": symbol,
+                "current_price": round(latest["Close"], 2),
+                "sma_20": round(latest["SMA_20"], 2),
+                "sma_50": round(latest["SMA_50"], 2),
+                "rsi": round(latest_rsi, 2),
+                "volume": int(latest["Volume"]),
+                "trend_signal": (
+                    "bullish"
+                    if latest["Close"] > latest["SMA_20"] > latest["SMA_50"]
+                    else "bearish"
+                ),
+            },
+            indent=2,
+        )
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -114,11 +136,11 @@ fundamental_analyst = {
     - Growth metrics and trends
     - Industry comparisons
     - Intrinsic value calculations
-    Always provide specific numbers and cite your sources."""
+    Always provide specific numbers and cite your sources.""",
 }
 
 technical_analyst = {
-    "name": "technical-analyst", 
+    "name": "technical-analyst",
     "description": "Analyzes price patterns, technical indicators, and trading signals",
     "prompt": """You are a professional technical analyst specializing in chart analysis and trading signals.
     Focus on:
@@ -127,7 +149,7 @@ technical_analyst = {
     - Support and resistance levels
     - Volume analysis
     - Entry/exit recommendations
-    Provide specific price levels and timeframes for your recommendations."""
+    Provide specific price levels and timeframes for your recommendations.""",
 }
 
 risk_analyst = {
@@ -140,7 +162,7 @@ risk_analyst = {
     - Sector and industry risks
     - Liquidity and credit risks
     - Regulatory and compliance risks
-    Always quantify risks where possible and suggest mitigation strategies."""
+    Always quantify risks where possible and suggest mitigation strategies.""",
 }
 
 subagents = [fundamental_analyst, technical_analyst, risk_analyst]
@@ -169,38 +191,44 @@ Always:
 When using sub-agents, provide them with specific, focused tasks and incorporate their specialized insights into your overall analysis."""
 
 # Define all tools
-tools = [
-    get_stock_price,
-    get_financial_statements, 
-    get_technical_indicators
-]
-
-# Create the DeepAgent
-stock_research_agent = create_deep_agent(
-    tools=tools,
-    instructions=research_instructions,
-    subagents=subagents,
-    model=ollama_model
-)
+tools = [get_stock_price, get_financial_statements, get_technical_indicators]
 
 
-
-
-
-def run_stock_research(query: str):
+def run_stock_research(query: str, model_provider: str = "ollama"):
     """Run the stock research agent and return the final message content with debug logging."""
     try:
         logging.info(f"[run_stock_research] Query received: {query}")
-        
-        result = stock_research_agent.invoke({
-            "messages": [{"role": "user", "content": query}]
-        })
+        logging.info(f"[run_stock_research] Model provider: {model_provider}")
+
+        # Create model based on selection
+        if model_provider == "lm_studio":
+            selected_model = ChatOpenAI(
+                base_url="http://localhost:1234/v1",
+                api_key="lm-studio",
+                model="local-model",
+                temperature=0,
+            )
+        else:  # ollama
+            selected_model = ChatOllama(
+                model="gpt-oss",
+                temperature=0,
+            )
+
+        # Create agent with selected model
+        agent = create_deep_agent(
+            tools=tools,
+            instructions=research_instructions,
+            subagents=subagents,
+            model=selected_model,
+        )
+
+        result = agent.invoke({"messages": [{"role": "user", "content": query}]})
 
         logging.debug(f"[run_stock_research] Full result: {result}")
-        
+
         messages = result.get("messages", [])
         output_text = ""
-        
+
         if not messages:
             logging.warning("[run_stock_research] No messages returned in result.")
             output_text = "Error: No response messages received."
@@ -228,18 +256,27 @@ def run_stock_research(query: str):
         logging.exception("[run_stock_research] Exception during invocation:")
         return f"Error: {str(e)}"
 
+
 # Create Gradio UI
 with gr.Blocks() as demo:
     gr.Markdown("## 📊 Stock Research Agent")
     gr.Markdown("Enter your stock research request below. Example: *Comprehensive analysis on Apple Inc. (AAPL)*")
-    
+
+    with gr.Row():
+        model_dropdown = gr.Dropdown(
+            choices=["ollama", "lm_studio"],
+            value="ollama",
+            label="Model Provider",
+            info="Choose between Ollama (local) or LM Studio (local)",
+        )
+
     with gr.Row():
         query_input = gr.Textbox(label="Research Query", lines=6, placeholder="Type your research query here...")
-    
+
     run_button = gr.Button("Run Analysis")
     output_box = gr.Textbox(label="Research Report", lines=20)
-    
-    run_button.click(fn=run_stock_research, inputs=query_input, outputs=output_box)
+
+    run_button.click(fn=run_stock_research, inputs=[query_input, model_dropdown], outputs=output_box)
 
 # Launch app
 demo.launch(server_name="0.0.0.0", server_port=7860)
