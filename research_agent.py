@@ -6,11 +6,15 @@ import logging
 import gradio as gr
 from langchain_core.tools import tool
 import json
+from langchain_community.tools import BraveSearch
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
 
 @tool
 def get_stock_price(symbol: str) -> str:
@@ -81,6 +85,46 @@ def get_financial_statements(symbol: str) -> str:
         )
     except Exception as e:
         return f"Error: {str(e)}"
+
+
+brave_search = BraveSearch.from_api_key(
+    api_key=os.getenv("BRAVE_SEARCH_API_KEY", ""),
+    search_kwargs={"count": 3}  
+)
+
+@tool
+def search_financial_news(company_name: str, symbol: str) -> str:
+    """Search for recent financial news about a company using Brave Search."""
+    try:
+        search_query = f"{company_name} {symbol} financial news stock earnings latest"
+        results = brave_search.run(search_query)
+        
+        return json.dumps({
+            "symbol": symbol,
+            "company": company_name,
+            "search_query": search_query,
+            "news_results": results
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({"error": f"Failed to search news: {str(e)}"})
+
+
+@tool
+def search_market_trends(topic: str) -> str:
+    """Search for market trends and analysis on a specific topic using Brave Search."""
+    try:
+        search_query = f"{topic} market analysis trends 2024 2025 investment outlook forecast"
+        results = brave_search.run(search_query)
+        
+        return json.dumps({
+            "topic": topic,
+            "search_query": search_query,
+            "trend_results": results
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({"error": f"Failed to search trends: {str(e)}"})
 
 
 @tool
@@ -174,16 +218,18 @@ research_instructions = """You are an elite stock research analyst with access t
 Your research process should be systematic and comprehensive:
 
 1. **Initial Data Gathering**: Start by collecting basic stock information, price data, and recent news
-2. **Fundamental Analysis**: Deep dive into financial statements, ratios, and company fundamentals
-3. **Technical Analysis**: Analyze price patterns, trends, and technical indicators
-4. **Risk Assessment**: Identify and evaluate potential risks
-5. **Competitive Analysis**: Compare with industry peers when relevant
-6. **Synthesis**: Combine all findings into a coherent investment thesis
-7. **Recommendation**: Provide clear buy/sell/hold recommendation with price targets
+2. **News & Market Research**: Use Brave Search to find recent financial news and market trends
+3. **Fundamental Analysis**: Deep dive into financial statements, ratios, and company fundamentals
+4. **Technical Analysis**: Analyze price patterns, trends, and technical indicators
+5. **Risk Assessment**: Identify and evaluate potential risks
+6. **Competitive Analysis**: Compare with industry peers when relevant
+7. **Synthesis**: Combine all findings into a coherent investment thesis
+8. **Recommendation**: Provide clear buy/sell/hold recommendation with price targets
 
 Always:
 - Use specific data and numbers to support your analysis
 - Cite your sources and methodology
+- Include recent news and market sentiment in your analysis from Brave Search results
 - Consider multiple perspectives and potential scenarios
 - Provide actionable insights and concrete recommendations
 - Structure your final report professionally
@@ -191,7 +237,13 @@ Always:
 When using sub-agents, provide them with specific, focused tasks and incorporate their specialized insights into your overall analysis."""
 
 # Define all tools
+# Define tools, excluding BraveSearch-based tools when API key is not set
+_brave_api_key = os.getenv("BRAVE_SEARCH_API_KEY", "")
 tools = [get_stock_price, get_financial_statements, get_technical_indicators]
+if _brave_api_key:
+    tools.extend([search_financial_news, search_market_trends])
+else:
+    logging.info("BRAVE_SEARCH_API_KEY not found: excluding Brave Search tools from tools list")
 
 
 def run_stock_research(query: str, model_provider: str = "ollama"):
@@ -259,8 +311,22 @@ def run_stock_research(query: str, model_provider: str = "ollama"):
 
 # Create Gradio UI
 with gr.Blocks() as demo:
-    gr.Markdown("## 📊 Stock Research Agent")
+    gr.Markdown("## 📊 Stock Research Agent with Brave Search")
     gr.Markdown("Enter your stock research request below. Example: *Comprehensive analysis on Apple Inc. (AAPL)*")
+    
+    # Check if API key is loaded from .env
+    env_api_key = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    api_status = "✅ API Key loaded from .env" if env_api_key else "❌ No API Key in .env"
+    
+    gr.Markdown(f"""
+    **Brave Search API Setup:**
+    1. Get your free API key at [Brave Search API](https://api.search.brave.com/)
+    2. Create a `.env` file in this directory with: `BRAVE_SEARCH_API_KEY=your_api_key_here`
+    3. Or enter your API key below (optional)
+    
+    **Current Status:** {api_status}
+    {f"**Loaded Key:** {env_api_key[:8]}...{env_api_key[-4:]} (masked)" if env_api_key else ""}
+    """)
 
     with gr.Row():
         model_dropdown = gr.Dropdown(
@@ -268,6 +334,14 @@ with gr.Blocks() as demo:
             value="ollama",
             label="Model Provider",
             info="Choose between Ollama (local) or LM Studio (local)",
+        )
+        
+    with gr.Row():
+        api_key_input = gr.Textbox(
+            label="Brave Search API Key (Optional)",
+            type="password",
+            placeholder="Enter your Brave Search API key here or use .env file...",
+            info="Required for web search features. Leave empty if you've set BRAVE_SEARCH_API_KEY in .env file."
         )
 
     with gr.Row():
