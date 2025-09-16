@@ -90,7 +90,7 @@ This project demonstrates how to build advanced AI research capabilities using L
 
 4. **Run the application**
    ```bash
-   python researchagent.py
+   python research_agent.py
    ```
 
 5. **Open your browser**
