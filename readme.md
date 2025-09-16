@@ -231,6 +231,10 @@ If you find this project useful, please consider giving it a star ⭐️ on GitH
 
 ---
 
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sagar-n/deepagents&type=Date)](https://star-history.com/#sagar-n/deepagents&Date)
+
 **Built with ❤️ using LangChain DeepAgents**
 
 *Transform your investment research with the power of specialized AI agents.*
