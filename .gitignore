@@ -1,3 +1,5 @@
 venv
 .env
 .DS_Store
+__pycache__
+./deep-research-agents-v2/__pycache__
