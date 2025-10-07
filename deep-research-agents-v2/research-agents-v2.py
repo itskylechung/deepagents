@@ -22,11 +22,8 @@ load_dotenv()
 
 
 ## === Load Model Configs ===
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20B")
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "local-model")
-LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
-LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY", "lm-studio")
-DEFAULT_MODEL_PROVIDER = os.getenv("DEFAULT_MODEL_PROVIDER", "ollama")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-5-mini")
+OPEN_AI_MODEL = os.getenv("OPEN_AI_MODEL", "gpt-4o-mini")
 RECURSION_LIMIT = os.getenv("RECURSION_LIMIT", 25)
 GRADIO_SERVER_NAME =os.getenv("GRADIO_SERVER_NAME","")
 GRADIO_SERVER_PORT = os.getenv("GRADIO_SERVER_PORT","")
@@ -90,11 +87,10 @@ def run_stock_research(query: str, model_provider: str = DEFAULT_MODEL_PROVIDER)
         logging.info(f"[run_stock_research] Model provider: {model_provider}")
 
         # Create model based on selection
-        if model_provider == "lm_studio":
+        if model_provider == "open_ai":
             selected_model = ChatOpenAI(
-                base_url=LM_STUDIO_BASE_URL,
-                api_key=LM_STUDIO_API_KEY,
-                model=LM_STUDIO_MODEL,
+                api_key=OPEN_AI_API_KEY,
+                model=OPEN_AI_MODEL,
                 temperature=0,
             )
         else:  # ollama
